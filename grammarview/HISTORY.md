@@ -1,0 +1,73 @@
+# Project History
+
+## 2026-03-12
+- **Maintenance:**
+    - Removed `dependency-reduced-pom.xml` (temporary Maven Shade artifact).
+- **Docker Support:**
+    - Fixed Docker JAR accessibility: Moved the application JAR to `/opt` in the Docker image to prevent it from being hidden when a local volume is mounted to the working directory (`/app`).
+    - Created a multi-stage `Dockerfile` using Maven 3.9 and Alpine-based OpenJDK 21.
+- **Compliance:**
+    - Added attributions for ANTLR4 grammars (BisonLexer.g4, BisonParser.g4) to `README.md`.
+    - Renamed `LICENSE.txt` to `LICENSE`.
+    - Updated `README.md` with GPL-3.0 license and explanatory text regarding its benefits for the research community.
+    - Added a standard license header to all Java source files (`GrammarViewApp.java`, `BisonLexerBase.java`).
+- **Documentation:**
+    - Restored and expanded comprehensive JavaDoc and inline comments across `GrammarViewApp.java`.
+- **PDF Generation Improvements:**
+    - Standardized LHS Background: All LHS rule names now have a yellow background by default.
+    - Priority for Nullable Coloring: Nullable symbols use a light gray background, taking precedence over other coloring.
+    - Bold Text Everywhere: All text in the PDF is now rendered in bold.
+    - Refined Centering: Implemented more precise centering logic using font cap height and string width.
+    - Universal Recursive Symbol Drawing: Recursive non-terminals are drawn with the stacked rectangle style wherever they appear.
+    - Custom Shape for Starting Rule: The LHS box for the first rule features a "less than" (<) shape.
+    - Modified rendering of empty rules (epsilon) to draw a simple line.
+- **Bug Fixes:**
+    - Restored black borders for non-starting LHS boxes.
+    - Added null checks in the YACC parser.
+    - Fixed syntax errors in example files.
+
+## 2026-03-11
+- **Documentation & Logging:**
+    - Created `PROMPTS.md` to log all user requests throughout the project.
+    - Added a mandate to `GEMINI.md` to ensure `PROMPTS.md` is updated with every future request.
+    - Created `README.md` with project overview and usage instructions.
+    - Created `.gitignore` to manage build artifacts, IDE files, and PDF outputs.
+    - Created `HISTORY.md` to document project changes.
+    - Updated `HISTORY.md` with historical data from the "Day 1" session.
+- **PDF Generation Improvements:**
+    - Centered text horizontally and vertically within LHS boxes and RHS rounded rectangles.
+    - Updated RHS background to a more vivid yellow.
+    - Replaced RHS ellipses with rounded rectangles.
+    - Added ellipses around each right-hand side (RHS) alternative and connected them to the left-hand side (LHS) with lines.
+    - Added rectangular boxes with drop shadows around the LHS of each grammar rule.
+    - Modified output format to put each alternative (RHS) of a grammar rule on a separate line.
+    - Changed default page size from A4 to US Letter.
+    - Switched PDF generation to landscape mode for better grammar readability.
+    - Updated text placement logic to utilize landscape dimensions.
+- **Project Reorganization:**
+    - Created `examples/` directory and moved `test.y` into it for better project structure.
+- **Added Project Mandates:** Created `GEMINI.md` to define core directives and architectural patterns.
+- **Enhanced Parsing with ANTLR4:**
+    - Replaced basic regex parsing with a robust ANTLR4-based parser for YACC/Bison files.
+    - Added `BisonLexer.g4` and `BisonParser.g4` grammars.
+    - Integrated `antlr4-maven-plugin` and `antlr4-runtime` into the build process.
+    - Refactored `GrammarViewApp.java` to utilize the new parser.
+
+## 2026-03-10 (Day 1)
+- **Initial Project Scaffolding:**
+  - Established a Java 20 Maven project structure.
+  - Integrated `picocli` for CLI argument parsing and `slf4j-simple` for logging.
+  - Configured `maven-shade-plugin` for executable fat JAR generation.
+- **CLI Implementation:**
+  - Developed `GrammarViewApp` with support for YACC file input and optional flags: `-legend`, `-v`/`--verbose`.
+- **Initial Grammar Processing:**
+  - Implemented basic rule extraction using regular expressions for initial YACC parsing.
+- **PDF Generation Engine:**
+  - Integrated Apache PDFBox for visual grammar representation.
+  - Developed logic to render rules into multi-page PDF documents.
+  - Implemented a dynamic "Legend" page generator.
+- **Dependency Refactor:**
+  - Downgraded PDFBox to 2.0.29 to resolve macOS-specific font scanning issues.
+  - Refactored code to use the PDFBox 2.x API.
+- **Verification:**
+  - Created `test.y` and verified the full build and execution cycle.
