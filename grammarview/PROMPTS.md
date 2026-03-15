@@ -51,3 +51,19 @@ remain open and available to the research community.
 - I would like to add a Dockerfile and the ability to run the program on the command line from Docker. It should use a lightweight Docker image, and it should use openjdk for Java 20 (or higher). I would also like instructions in the README.md file on how to use it this way.
 - When I try to run the program using your example command line, I get this error: Error: Unable to access jarfile grammarview.jar
 - Is dependency-reduced-pom.xml still needed? If not, I'd like to delete it.
+
+## Day 6: 2026-03-15
+- I want you to save my prompts in PROMPTS.md
+- I would like to replace the hard coded "magic numbers" with well-named constants.
+- Let's move the routines that draw PDF graphics into a PdfSymbolRenderer class.
+- The program should catch all exceptions and return an appropriate Linux return code for the various types of error as well as printing a relevant message to stderr. For example, when an invalid argument is presented, when a YACC grammar cannot be parsed, when an error happens creating the PDF file.
+- Please document the return codes in README.md
+- I would like to be able to specify the font size from the command line, but I'm not sure how that should look. What is the standard or common UNIX way to specify that?
+- Yes. Let's allow font sizes from 6 to 32, and let's keep the existing font size as the default.
+- Why is there not a constant for the return code of 2? Please fix that, and keep it consistent with the other return codes.
+- I would also like to add a command line option to draw the PDF in portrait mode instead of landscape.
+- I would like to be able to specify a page size from the command line. Keep the LETTER size as the default, but add support for the page sizes supported by Apache PDFBox.
+- I would like to add some unit tests. For example, for input file test2.y, I want to verify that march is the start symbol; that there are 8 rules; that "embellishment" is nullable; and that "steps" is recursive.
+- Add similar unit tests for test.y. Also, please document the unit tests with GIVEN.. WHEN... THEN... comments.
+- If a rhs is empty, or if all of the items on a rhs alternative are nullable, then the rule is nullable.
+

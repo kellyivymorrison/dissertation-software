@@ -37,6 +37,9 @@ java -jar target/grammarview-1.0-SNAPSHOT.jar [OPTIONS] <YACC_FILE>
 ### Options
 
 - `-legend`: Add a legend page to the end of the PDF.
+- `-p`, `--portrait`: Use portrait orientation (default: landscape).
+- `--page-size`: Page size (LETTER, LEGAL, A0, A1, A2, A3, A4, A5, A6). Default: LETTER.
+- `-s`, `--font-size`: Font size in points (default: 12, range: 6-32).
 - `-v`, `--verbose`: Enable verbose logging.
 - `-h`, `--help`: Show the help message.
 
@@ -47,6 +50,17 @@ java -jar target/grammarview-1.0-SNAPSHOT.jar -legend examples/test.y
 ```
 
 This will produce `test.y.pdf` in the current directory.
+
+## Return Codes
+
+GrammarView returns the following exit codes:
+
+- `0`: Success.
+- `1`: General Error (unexpected runtime exception).
+- `2`: Usage Error (invalid command-line arguments).
+- `3`: File Not Found (input YACC file does not exist).
+- `4`: Parse Error (the YACC grammar contains syntax errors).
+- `5`: PDF Error (failed to generate or save the PDF file).
 
 ## Docker Usage
 

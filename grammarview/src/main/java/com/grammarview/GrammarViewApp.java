@@ -40,11 +40,44 @@ import java.util.concurrent.Callable;
         description = "Produces a PDF view of a YACC grammar.")
 public class GrammarViewApp implements Callable<Integer> {
 
+    // --- Exit Codes ---
+    private static final int EXIT_SUCCESS = 0;
+    private static final int EXIT_GENERAL_ERROR = 1;
+    private static final int EXIT_USAGE_ERROR = 2;
+    private static final int EXIT_FILE_NOT_FOUND = 3;
+    private static final int EXIT_PARSE_ERROR = 4;
+    private static final int EXIT_PDF_ERROR = 5;
+
+    // --- Layout Constants ---
+    
+    private static final float MARGIN_X = 50f;
+    private static final float MARGIN_Y = 50f;
+    private static final float INITIAL_Y_OFFSET = 100f;
+    private static final float BOTTOM_OVERFLOW_LIMIT = 50f;
+    
+    private static final float RHS_START_X_OFFSET = 40f;
+    private static final float RHS_ITEM_LINK_LENGTH = 15f;
+    private static final float SPACING_ALTERNATIVES = 10f;
+    private static final float SPACING_RULES = 20f;
+    
+    private static final float LEGEND_LINE_SPACING = 20f;
+
     @Parameters(index = "0", description = "The YACC file to process.")
     private File yaccFile;
 
     @Option(names = {"-legend"}, description = "Add a legend page to the PDF.")
     private boolean legend;
+
+    @Option(names = {"-p", "--portrait"}, description = "Use portrait orientation (default: landscape).")
+    private boolean portrait;
+
+    @Option(names = {"--page-size"}, defaultValue = "LETTER", 
+            description = "Page size (LETTER, LEGAL, A0, A1, A2, A3, A4, A5, A6).")
+    private String pageSizeName;
+
+    @Option(names = {"-s", "--font-size"}, defaultValue = "12", 
+            description = "Font size in points (default: 12, range: 6-32).")
+    private float fontSize;
 
     @Option(names = {"-v", "--verbose"}, description = "Enable verbose logging.")
     private boolean verbose;
@@ -52,7 +85,7 @@ public class GrammarViewApp implements Callable<Integer> {
     /**
      * Internal representation of a Grammar Rule.
      */
-    private static class Rule {
+    static class Rule {
         String name;
         /** List of alternatives, where each alternative is a list of symbol names. */
         List<List<String>> alternatives = new ArrayList<>();
@@ -63,29 +96,64 @@ public class GrammarViewApp implements Callable<Integer> {
     }
 
     /**
+     * Exception thrown when YACC parsing fails.
+     */
+    private static class GrammarParseException extends Exception {
+        GrammarParseException(String message) {
+            super(message);
+        }
+    }
+
+    /**
      * Main execution logic for the CLI command.
      */
     @Override
-    public Integer call() throws Exception {
-        if (verbose) {
-            System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "debug");
-            System.out.println("Verbose logging enabled.");
+    public Integer call() {
+        try {
+            if (verbose) {
+                System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "debug");
+                System.out.println("Verbose logging enabled.");
+            }
+
+            if (!yaccFile.exists()) {
+                System.err.println("Error: File not found: " + yaccFile.getPath());
+                return EXIT_FILE_NOT_FOUND;
+            }
+
+            // Validate font size range
+            if (fontSize < 6 || fontSize > 32) {
+                System.err.println("Error: Font size must be between 6 and 32 points.");
+                return EXIT_USAGE_ERROR;
+            }
+
+            System.out.println("Processing YACC file: " + yaccFile.getName());
+            
+            // 1. Parse the YACC file into internal Rule objects using ANTLR
+            List<Rule> rules;
+            try {
+                rules = parseYacc(yaccFile);
+            } catch (GrammarParseException e) {
+                System.err.println("Error: " + e.getMessage());
+                return EXIT_PARSE_ERROR;
+            } catch (Exception e) {
+                System.err.println("Error: Failed to parse YACC file: " + e.getMessage());
+                return EXIT_PARSE_ERROR;
+            }
+            
+            // 2. Generate the PDF visualization using PDFBox
+            try {
+                generatePdf(rules);
+            } catch (IOException e) {
+                System.err.println("Error: Failed to create PDF file: " + e.getMessage());
+                return EXIT_PDF_ERROR;
+            }
+
+            return EXIT_SUCCESS;
+        } catch (Exception e) {
+            System.err.println("Error: An unexpected error occurred: " + e.getMessage());
+            if (verbose) e.printStackTrace(System.err);
+            return EXIT_GENERAL_ERROR;
         }
-
-        if (!yaccFile.exists()) {
-            System.err.println("Error: File not found: " + yaccFile.getPath());
-            return 1;
-        }
-
-        System.out.println("Processing YACC file: " + yaccFile.getName());
-        
-        // 1. Parse the YACC file into internal Rule objects using ANTLR
-        List<Rule> rules = parseYacc(yaccFile);
-        
-        // 2. Generate the PDF visualization using PDFBox
-        generatePdf(rules);
-
-        return 0;
     }
 
     /**
@@ -94,12 +162,23 @@ public class GrammarViewApp implements Callable<Integer> {
      * @param file The input YACC/Bison file.
      * @return A list of extracted Rule objects.
      */
-    private List<Rule> parseYacc(File file) throws IOException {
-        CharStream input = CharStreams.fromPath(file.toPath());
+    List<Rule> parseYacc(File file) throws Exception {
+        CharStream input;
+        try {
+            input = CharStreams.fromPath(file.toPath());
+        } catch (IOException e) {
+            throw new Exception("Failed to read YACC file: " + e.getMessage());
+        }
+
         BisonLexer lexer = new BisonLexer(input);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         BisonParser parser = new BisonParser(tokens);
+        
         ParseTree tree = parser.input_();
+
+        if (parser.getNumberOfSyntaxErrors() > 0) {
+            throw new GrammarParseException("Found " + parser.getNumberOfSyntaxErrors() + " syntax errors in the YACC grammar.");
+        }
 
         List<Rule> rules = new ArrayList<>();
         ParseTreeWalker walker = new ParseTreeWalker();
@@ -137,7 +216,7 @@ public class GrammarViewApp implements Callable<Integer> {
      */
     private void generatePdf(List<Rule> rules) throws IOException {
         String outputFileName = yaccFile.getName() + ".pdf";
-        System.out.println("Generating PDF: " + outputFileName);
+        System.out.println("Generating PDF: " + outputFileName + " with font size " + fontSize + ", size " + pageSizeName);
 
         // Analyze grammar metadata for rendering hints
         Set<String> nonTerminals = new HashSet<>();
@@ -150,36 +229,66 @@ public class GrammarViewApp implements Callable<Integer> {
                 if (alt.contains(rule.name)) {
                     recursiveRules.add(rule.name);
                 }
-                if (alt.isEmpty()) {
-                    nullableRules.add(rule.name);
+            }
+        }
+
+        // Iterative nullability calculation (Fixed-point iteration)
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (Rule rule : rules) {
+                if (nullableRules.contains(rule.name)) continue;
+
+                for (List<String> alt : rule.alternatives) {
+                    if (alt.isEmpty()) {
+                        if (nullableRules.add(rule.name)) {
+                            changed = true;
+                        }
+                        break;
+                    } else {
+                        // Check if all items in this alternative are nullable non-terminals
+                        boolean allNullable = true;
+                        for (String item : alt) {
+                            if (!nullableRules.contains(item)) {
+                                allNullable = false;
+                                break;
+                            }
+                        }
+                        if (allNullable) {
+                            if (nullableRules.add(rule.name)) {
+                                changed = true;
+                            }
+                            break;
+                        }
+                    }
                 }
             }
         }
         
         try (PDDocument document = new PDDocument()) {
-            // Setup Landscape US Letter page
-            PDRectangle landscape = new PDRectangle(PDRectangle.LETTER.getHeight(), PDRectangle.LETTER.getWidth());
-            PDPage page = new PDPage(landscape);
+            // Setup page orientation and size based on CLI options
+            PDRectangle baseSize = getPageSize(pageSizeName);
+            PDRectangle pageSize = portrait ? baseSize : 
+                new PDRectangle(baseSize.getHeight(), baseSize.getWidth());
+            PDPage page = new PDPage(pageSize);
             document.addPage(page);
 
             PDType1Font boldFont = PDType1Font.HELVETICA_BOLD;
 
             try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                PdfSymbolRenderer renderer = new PdfSymbolRenderer(contentStream, boldFont);
+                
                 // Title
                 contentStream.beginText();
-                contentStream.setFont(boldFont, 18);
-                contentStream.newLineAtOffset(50, landscape.getHeight() - 50);
+                contentStream.setFont(boldFont, PdfSymbolRenderer.FONT_SIZE_TITLE);
+                contentStream.newLineAtOffset(MARGIN_X, pageSize.getHeight() - MARGIN_Y);
                 contentStream.showText("Grammar View: " + yaccFile.getName());
                 contentStream.endText();
 
-                float yOffset = landscape.getHeight() - 100;
-                float fontSize = 12;
-                Color vividYellow = Color.YELLOW;
-                Color lightBlue = new Color(173, 216, 230);
-                Color lightGray = new Color(211, 211, 211);
+                float yOffset = pageSize.getHeight() - INITIAL_Y_OFFSET;
 
                 // Vertical centering adjustment based on font cap height
-                float capHeight = boldFont.getFontDescriptor().getCapHeight() / 1000f * fontSize;
+                float capHeight = boldFont.getFontDescriptor().getCapHeight() / PdfSymbolRenderer.FONT_UNIT_CONVERSION * fontSize;
 
                 for (int ruleIdx = 0; ruleIdx < rules.size(); ruleIdx++) {
                     Rule rule = rules.get(ruleIdx);
@@ -188,37 +297,28 @@ public class GrammarViewApp implements Callable<Integer> {
                     boolean isNullable = nullableRules.contains(rule.name);
 
                     // Calculate bounding box for LHS
-                    float ruleNameWidth = boldFont.getStringWidth(rule.name) / 1000 * fontSize;
-                    float boxPaddingX = 10;
-                    float boxPaddingY = 6;
-                    float boxWidth = ruleNameWidth + (boxPaddingX * 2);
-                    float boxHeight = fontSize + (boxPaddingY * 2);
-                    float xPos = 50;
-                    float boxY = yOffset - boxPaddingY;
+                    float ruleNameWidth = boldFont.getStringWidth(rule.name) / PdfSymbolRenderer.FONT_UNIT_CONVERSION * fontSize;
+                    float boxWidth = ruleNameWidth + (PdfSymbolRenderer.BOX_PADDING_X * 2);
+                    float boxHeight = fontSize + (PdfSymbolRenderer.BOX_PADDING_Y * 2);
+                    float xPos = MARGIN_X;
+                    float boxY = yOffset - PdfSymbolRenderer.BOX_PADDING_Y;
 
                     // 1. Draw Shadow for LHS
-                    contentStream.setNonStrokingColor(Color.LIGHT_GRAY);
+                    contentStream.setNonStrokingColor(PdfSymbolRenderer.COLOR_SHADOW);
                     if (isStartRule) {
-                        drawLHSStartShape(contentStream, xPos + 2, boxY - 2, boxWidth, boxHeight, true);
+                        renderer.drawLHSStartShape(xPos + PdfSymbolRenderer.SHADOW_OFFSET, boxY - PdfSymbolRenderer.SHADOW_OFFSET, boxWidth, boxHeight, true);
                     } else {
-                        contentStream.addRect(xPos + 2, boxY - 2, boxWidth, boxHeight);
+                        contentStream.addRect(xPos + PdfSymbolRenderer.SHADOW_OFFSET, boxY - PdfSymbolRenderer.SHADOW_OFFSET, boxWidth, boxHeight);
                         contentStream.fill();
                     }
 
                     // 2. Draw LHS Main Shape
                     // Priority: Nullable (Gray) > Rule Definition (Yellow)
-                    Color lhsColor = isNullable ? lightGray : vividYellow;
-                    drawNonTerminalShape(contentStream, xPos, boxY, boxWidth, boxHeight, lhsColor, isRecursive, isStartRule);
+                    Color lhsColor = isNullable ? PdfSymbolRenderer.COLOR_LIGHT_GRAY : PdfSymbolRenderer.COLOR_VIVID_YELLOW;
+                    renderer.drawNonTerminalShape(xPos, boxY, boxWidth, boxHeight, lhsColor, isRecursive, isStartRule);
 
                     // 3. Render LHS Text (Centered)
-                    contentStream.beginText();
-                    contentStream.setFont(boldFont, fontSize);
-                    contentStream.setNonStrokingColor(Color.BLACK);
-                    float textX = xPos + (boxWidth - ruleNameWidth) / 2 + (isStartRule ? 3 : 0);
-                    float textY = boxY + (boxHeight - capHeight) / 2;
-                    contentStream.newLineAtOffset(textX, textY);
-                    contentStream.showText(rule.name);
-                    contentStream.endText();
+                    renderer.drawCenteredText(rule.name, xPos, boxY, boxWidth, boxHeight, fontSize, capHeight, isStartRule);
 
                     float lineStartX = xPos + boxWidth;
                     float lineStartY = boxY + (boxHeight / 2);
@@ -226,12 +326,12 @@ public class GrammarViewApp implements Callable<Integer> {
                     // 4. Render RHS Alternatives
                     for (int i = 0; i < rule.alternatives.size(); i++) {
                         List<String> items = rule.alternatives.get(i);
-                        float currentX = xPos + boxWidth + 40;
+                        float currentX = xPos + boxWidth + RHS_START_X_OFFSET;
                         float currentY = yOffset;
-                        float targetY = (currentY - boxPaddingY) + (boxHeight / 2);
+                        float targetY = (currentY - PdfSymbolRenderer.BOX_PADDING_Y) + (boxHeight / 2);
 
                         // Draw Orthogonal Connecting Line
-                        contentStream.setStrokingColor(Color.BLACK);
+                        contentStream.setStrokingColor(PdfSymbolRenderer.COLOR_STROKE);
                         float midX = lineStartX + (currentX - lineStartX) / 2;
                         contentStream.moveTo(lineStartX, lineStartY);
                         contentStream.lineTo(midX, lineStartY);
@@ -243,12 +343,10 @@ public class GrammarViewApp implements Callable<Integer> {
                         if (!items.isEmpty()) {
                             for (int j = 0; j < items.size(); j++) {
                                 String itemText = items.get(j);
-                                float itemWidth = boldFont.getStringWidth(itemText) / 1000 * fontSize;
-                                float rectPaddingX = 10;
-                                float rectPaddingY = 6;
-                                float rectWidth = itemWidth + (rectPaddingX * 2);
-                                float rectHeight = fontSize + (rectPaddingY * 2);
-                                float itemBoxY = currentY - rectPaddingY;
+                                float itemWidth = boldFont.getStringWidth(itemText) / PdfSymbolRenderer.FONT_UNIT_CONVERSION * fontSize;
+                                float rectWidth = itemWidth + (PdfSymbolRenderer.BOX_PADDING_X * 2);
+                                float rectHeight = fontSize + (PdfSymbolRenderer.BOX_PADDING_Y * 2);
+                                float itemBoxY = currentY - PdfSymbolRenderer.BOX_PADDING_Y;
 
                                 boolean isItemRecursive = recursiveRules.contains(itemText);
                                 boolean isItemNullable = nullableRules.contains(itemText);
@@ -258,27 +356,20 @@ public class GrammarViewApp implements Callable<Integer> {
 
                                 // 4a. Draw item symbol
                                 if (isTerminal) {
-                                    drawRoundedRectangle(contentStream, currentX, itemBoxY, rectWidth, rectHeight, 5, lightBlue);
+                                    renderer.drawRoundedRectangle(currentX, itemBoxY, rectWidth, rectHeight, PdfSymbolRenderer.ROUNDED_RECT_RADIUS, PdfSymbolRenderer.COLOR_LIGHT_BLUE);
                                 } else {
-                                    Color itemColor = isItemNullable ? lightGray : vividYellow;
-                                    drawNonTerminalShape(contentStream, currentX, itemBoxY, rectWidth, rectHeight, itemColor, isItemRecursive, false);
+                                    Color itemColor = isItemNullable ? PdfSymbolRenderer.COLOR_LIGHT_GRAY : PdfSymbolRenderer.COLOR_VIVID_YELLOW;
+                                    renderer.drawNonTerminalShape(currentX, itemBoxY, rectWidth, rectHeight, itemColor, isItemRecursive, false);
                                 }
 
                                 // 4b. Render item text (Centered)
-                                contentStream.beginText();
-                                contentStream.setFont(boldFont, fontSize);
-                                contentStream.setNonStrokingColor(Color.BLACK);
-                                float itemTextX = currentX + (rectWidth - itemWidth) / 2;
-                                float itemTextY = itemBoxY + (rectHeight - capHeight) / 2;
-                                contentStream.newLineAtOffset(itemTextX, itemTextY);
-                                contentStream.showText(itemText);
-                                contentStream.endText();
+                                renderer.drawCenteredText(itemText, currentX, itemBoxY, rectWidth, rectHeight, fontSize, capHeight, false);
 
                                 currentX += rectWidth;
 
                                 // 4c. Draw horizontal link to next item
                                 if (j < items.size() - 1) {
-                                    float nextLineEndX = currentX + 15;
+                                    float nextLineEndX = currentX + RHS_ITEM_LINK_LENGTH;
                                     contentStream.moveTo(currentX, targetY);
                                     contentStream.lineTo(nextLineEndX, targetY);
                                     contentStream.stroke();
@@ -289,55 +380,62 @@ public class GrammarViewApp implements Callable<Integer> {
                         
                         // Vertical spacing between alternatives
                         if (i < rule.alternatives.size() - 1) {
-                            yOffset -= (boxHeight + 10);
+                            yOffset -= (boxHeight + SPACING_ALTERNATIVES);
                         }
                     }
                     
                     // Vertical spacing between different rules
-                    yOffset -= (boxHeight + 20 + (isRecursive ? 10 : 0));
-                    if (yOffset < 50) break; // Overflow protection
+                    yOffset -= (boxHeight + SPACING_RULES + (isRecursive ? 10 : 0));
+                    if (yOffset < BOTTOM_OVERFLOW_LIMIT) break; // Overflow protection
                 }
             }
 
             // Optional Legend Page Generation
             if (legend) {
-                PDPage legendPage = new PDPage(landscape);
+                PDPage legendPage = new PDPage(pageSize);
                 document.addPage(legendPage);
                 try (PDPageContentStream contentStream = new PDPageContentStream(document, legendPage)) {
                     contentStream.beginText();
-                    contentStream.setFont(boldFont, 18);
-                    contentStream.newLineAtOffset(50, landscape.getHeight() - 50);
+                    contentStream.setFont(boldFont, PdfSymbolRenderer.FONT_SIZE_TITLE);
+                    contentStream.newLineAtOffset(MARGIN_X, pageSize.getHeight() - MARGIN_Y);
                     contentStream.showText("Legend (All text is BOLD)");
                     contentStream.endText();
 
-                    contentStream.beginText();
-                    contentStream.setFont(boldFont, 12);
-                    contentStream.newLineAtOffset(50, landscape.getHeight() - 100);
-                    contentStream.showText("Yellow Rectangular: Rule Definition or Non-terminal Symbol");
-                    contentStream.endText();
-
-                    contentStream.beginText();
-                    contentStream.newLineAtOffset(50, landscape.getHeight() - 120);
-                    contentStream.showText("Light Gray Rectangular: Nullable Symbol (Has at least one empty RHS)");
-                    contentStream.endText();
+                    float legendY = pageSize.getHeight() - INITIAL_Y_OFFSET;
                     
                     contentStream.beginText();
-                    contentStream.newLineAtOffset(50, landscape.getHeight() - 140);
+                    contentStream.setFont(boldFont, fontSize);
+                    contentStream.newLineAtOffset(MARGIN_X, legendY);
+                    contentStream.showText("Yellow Rectangular: Rule Definition or Non-terminal Symbol");
+                    contentStream.endText();
+                    legendY -= LEGEND_LINE_SPACING;
+
+                    contentStream.beginText();
+                    contentStream.newLineAtOffset(MARGIN_X, legendY);
+                    contentStream.showText("Light Gray Rectangular: Nullable Symbol (Has at least one empty RHS)");
+                    contentStream.endText();
+                    legendY -= LEGEND_LINE_SPACING;
+                    
+                    contentStream.beginText();
+                    contentStream.newLineAtOffset(MARGIN_X, legendY);
                     contentStream.showText("Light Blue Rounded Rect: Terminal Item (Token/Literal)");
                     contentStream.endText();
+                    legendY -= LEGEND_LINE_SPACING;
 
                     contentStream.beginText();
-                    contentStream.newLineAtOffset(50, landscape.getHeight() - 160);
+                    contentStream.newLineAtOffset(MARGIN_X, legendY);
                     contentStream.showText("Stacked Symbols: Recursive Symbol (Appears on its own RHS)");
                     contentStream.endText();
+                    legendY -= LEGEND_LINE_SPACING;
 
                     contentStream.beginText();
-                    contentStream.newLineAtOffset(50, landscape.getHeight() - 180);
+                    contentStream.newLineAtOffset(MARGIN_X, legendY);
                     contentStream.showText("< Shape: Start/Top-level Rule");
                     contentStream.endText();
+                    legendY -= LEGEND_LINE_SPACING;
 
                     contentStream.beginText();
-                    contentStream.newLineAtOffset(50, landscape.getHeight() - 200);
+                    contentStream.newLineAtOffset(MARGIN_X, legendY);
                     contentStream.showText("Empty Line: Epsilon (Represents an empty rule)");
                     contentStream.endText();
                 }
@@ -348,65 +446,21 @@ public class GrammarViewApp implements Callable<Integer> {
     }
 
     /**
-     * Draws a non-terminal shape, handling recursion stacking and start-rule shaping.
+     * Maps the page size name to the corresponding PDRectangle.
      */
-    private void drawNonTerminalShape(PDPageContentStream contentStream, float x, float y, float width, float height, Color fillColor, boolean isRecursive, boolean isStart) throws IOException {
-        contentStream.setNonStrokingColor(fillColor);
-        contentStream.setStrokingColor(Color.BLACK);
-
-        if (isRecursive) {
-            // Draw recursive stack (two offset boxes behind)
-            for (int stack = 2; stack >= 1; stack--) {
-                float sOffset = stack * 4;
-                if (isStart) {
-                    drawLHSStartShape(contentStream, x + sOffset, y + sOffset, width, height, false);
-                } else {
-                    contentStream.addRect(x + sOffset, y + sOffset, width, height);
-                    contentStream.fillAndStroke();
-                }
-            }
+    private PDRectangle getPageSize(String name) {
+        switch (name.toUpperCase()) {
+            case "A0": return PDRectangle.A0;
+            case "A1": return PDRectangle.A1;
+            case "A2": return PDRectangle.A2;
+            case "A3": return PDRectangle.A3;
+            case "A4": return PDRectangle.A4;
+            case "A5": return PDRectangle.A5;
+            case "A6": return PDRectangle.A6;
+            case "LEGAL": return PDRectangle.LEGAL;
+            case "LETTER":
+            default: return PDRectangle.LETTER;
         }
-
-        if (isStart) {
-            drawLHSStartShape(contentStream, x, y, width, height, false);
-        } else {
-            contentStream.addRect(x, y, width, height);
-            contentStream.fillAndStroke();
-        }
-    }
-
-    /**
-     * Helper to draw a rounded rectangle.
-     */
-    private void drawRoundedRectangle(PDPageContentStream contentStream, float x, float y, float width, float height, float radius, Color fillColor) throws IOException {
-        contentStream.setNonStrokingColor(fillColor);
-        contentStream.setStrokingColor(Color.BLACK);
-        float kappa = 0.552284749831f;
-        float kRadius = radius * kappa;
-        contentStream.moveTo(x + radius, y);
-        contentStream.lineTo(x + width - radius, y);
-        contentStream.curveTo(x + width - radius + kRadius, y, x + width, y + radius - kRadius, x + width, y + radius);
-        contentStream.lineTo(x + width, y + height - radius);
-        contentStream.curveTo(x + width, y + height - radius + kRadius, x + width - radius + kRadius, y + height, x + width - radius, y + height);
-        contentStream.lineTo(x + radius, y + height);
-        contentStream.curveTo(x + radius - kRadius, y + height, x, y + height - radius + kRadius, x, y + height - radius);
-        contentStream.lineTo(x, y + radius);
-        contentStream.curveTo(x, y + radius - kRadius, x + radius - kRadius, y, x + radius, y);
-        contentStream.fillAndStroke();
-    }
-
-    /**
-     * Helper to draw the special < shape for the start rule.
-     */
-    private void drawLHSStartShape(PDPageContentStream contentStream, float x, float y, float width, float height, boolean fillOnly) throws IOException {
-        float indent = 10;
-        contentStream.moveTo(x + indent, y);
-        contentStream.lineTo(x + width, y);
-        contentStream.lineTo(x + width, y + height);
-        contentStream.lineTo(x + indent, y + height);
-        contentStream.lineTo(x, y + (height / 2));
-        contentStream.closePath();
-        if (fillOnly) contentStream.fill(); else contentStream.fillAndStroke();
     }
 
     /**

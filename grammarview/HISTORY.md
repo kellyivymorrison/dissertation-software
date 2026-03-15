@@ -1,6 +1,35 @@
 # Project History
+## 2026-03-15
+- **Grammar Analysis Improvements:**
+    - Enhanced nullability detection: A rule is now correctly identified as nullable if it has an empty RHS alternative OR if all items in any of its RHS alternatives are themselves nullable.
+    - Implemented a fixed-point iteration algorithm to handle recursive nullability dependencies between rules.
+- **Testing:**
+    - Added a `testRecursiveNullability` unit test to verify complex nullability propagation.
+    - Integrated JUnit 5 into the project.
+...
+    - Added comprehensive unit tests in `GrammarViewAppTest.java` for both `test.y` and `test2.y`.
+    - Implemented `GIVEN... WHEN... THEN...` documentation pattern for all test cases.
+    - Verified grammar properties: rule counts, start symbols, nullability, and recursion.
+    - Refactored `GrammarViewApp` to improve testability by making internal classes and methods package-private.
+- **Features:**
+    - Added `--page-size` command-line option supporting common sizes (LETTER, LEGAL, A0-A6).
+    - Added `-p` / `--portrait` command-line option to support portrait orientation in generated PDFs.
+    - Added `-s` / `--font-size` command-line option to allow users to customize the font size (range: 6-32, default: 12).
+- **Documentation:**
+    - Documented all Linux return codes in `README.md`.
+    - Updated `PROMPTS.md` with the latest user requests.
+- **Error Handling:**
+    - Implemented a robust error handling strategy with specific Linux exit codes for different failure scenarios (File Not Found: 3, Parse Error: 4, PDF Error: 5, General Error: 1).
+    - Added syntax error detection during YACC parsing to ensure invalid grammars are reported and result in a non-zero exit code.
+    - Updated the application to print clear, relevant error messages to `stderr`.
+- **Refactoring:**
+    - Standardized exit codes by introducing `EXIT_USAGE_ERROR = 2` constant.
+    - Created `PdfSymbolRenderer` class to encapsulate all PDF drawing logic, separating it from the main application flow.
+...    - Replaced hard-coded "magic numbers" in `GrammarViewApp.java` with well-named constants in `PdfSymbolRenderer`.
+    - Improved code modularity and readability by delegating symbol and text rendering to the new renderer class.
+- **Documentation:**
+    - Updated `PROMPTS.md` with the latest user requests.
 
-## 2026-03-12
 - **Maintenance:**
     - Removed `dependency-reduced-pom.xml` (temporary Maven Shade artifact).
 - **Docker Support:**
