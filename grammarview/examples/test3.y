@@ -1,0 +1,9 @@
+// A grammar with a very long rule to test line wrapping.
+%token AAA BBB CCC DDD EEE FFF GGG HHH III JJJ KKK LLL MMM NNN OOO PPP QQQ RRR SSS TTT UUU VVV WWW XXX YYY ZZZ
+
+%%
+
+rule : AAA BBB CCC DDD EEE FFF GGG HHH III JJJ KKK LLL MMM NNN OOO PPP QQQ RRR SSS TTT UUU VVV WWW XXX YYY ZZZ ;
+
+other_rule : AAA BBB ;
+%%

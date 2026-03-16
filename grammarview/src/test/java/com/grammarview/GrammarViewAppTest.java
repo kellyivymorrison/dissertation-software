@@ -19,9 +19,9 @@ public class GrammarViewAppTest {
         File testFile = new File("examples/test2.y");
         assertTrue(testFile.exists(), "Test file test2.y should exist");
 
-        // WHEN: The YACC file is parsed into rule objects
-        List<GrammarViewApp.Rule> rules = app.parseYacc(testFile);
-        java.util.Set<String> nullableRules = calculateNullableRules(rules);
+        // WHEN: The YACC file is parsed into a GrammarModel
+        GrammarModel model = app.parseYacc(testFile);
+        List<GrammarModel.Rule> rules = model.getRules();
 
         // THEN: Verify the structural properties of the parsed grammar
         
@@ -32,14 +32,14 @@ public class GrammarViewAppTest {
         assertEquals("march", rules.get(0).name, "The start symbol should be 'march'");
 
         // Verify that "embellishment" is nullable
-        GrammarViewApp.Rule embellishment = findRule(rules, "embellishment");
+        GrammarModel.Rule embellishment = model.findRule("embellishment");
         assertNotNull(embellishment, "Rule 'embellishment' should exist");
-        assertTrue(isNullable(embellishment, nullableRules), "Rule 'embellishment' should be nullable");
+        assertTrue(model.isNullable("embellishment"), "Rule 'embellishment' should be nullable");
 
         // Verify that "steps" is recursive
-        GrammarViewApp.Rule steps = findRule(rules, "steps");
+        GrammarModel.Rule steps = model.findRule("steps");
         assertNotNull(steps, "Rule 'steps' should exist");
-        assertTrue(isRecursive(steps), "Rule 'steps' should be recursive");
+        assertTrue(model.isRecursive("steps"), "Rule 'steps' should be recursive");
     }
 
     @Test
@@ -49,9 +49,9 @@ public class GrammarViewAppTest {
         File testFile = new File("examples/test.y");
         assertTrue(testFile.exists(), "Test file test.y should exist");
 
-        // WHEN: The YACC file is parsed into rule objects
-        List<GrammarViewApp.Rule> rules = app.parseYacc(testFile);
-        java.util.Set<String> nullableRules = calculateNullableRules(rules);
+        // WHEN: The YACC file is parsed into a GrammarModel
+        GrammarModel model = app.parseYacc(testFile);
+        List<GrammarModel.Rule> rules = model.getRules();
 
         // THEN: Verify the structural properties of the parsed grammar
         
@@ -62,20 +62,20 @@ public class GrammarViewAppTest {
         assertEquals("program", rules.get(0).name, "The start symbol should be 'program'");
 
         // Verify that "stmt_list" is nullable
-        GrammarViewApp.Rule stmtList = findRule(rules, "stmt_list");
+        GrammarModel.Rule stmtList = model.findRule("stmt_list");
         assertNotNull(stmtList, "Rule 'stmt_list' should exist");
-        assertTrue(isNullable(stmtList, nullableRules), "Rule 'stmt_list' should be nullable");
+        assertTrue(model.isNullable("stmt_list"), "Rule 'stmt_list' should be nullable");
 
         // Verify that "stmt_list" and "expr" are recursive
-        assertTrue(isRecursive(stmtList), "Rule 'stmt_list' should be recursive");
-        GrammarViewApp.Rule expr = findRule(rules, "expr");
+        assertTrue(model.isRecursive("stmt_list"), "Rule 'stmt_list' should be recursive");
+        GrammarModel.Rule expr = model.findRule("expr");
         assertNotNull(expr, "Rule 'expr' should exist");
-        assertTrue(isRecursive(expr), "Rule 'expr' should be recursive");
+        assertTrue(model.isRecursive("expr"), "Rule 'expr' should be recursive");
         
         // Verify that "term" is NOT recursive
-        GrammarViewApp.Rule term = findRule(rules, "term");
+        GrammarModel.Rule term = model.findRule("term");
         assertNotNull(term, "Rule 'term' should exist");
-        assertFalse(isRecursive(term), "Rule 'term' should NOT be recursive");
+        assertFalse(model.isRecursive("term"), "Rule 'term' should NOT be recursive");
     }
 
     @Test
@@ -87,70 +87,39 @@ public class GrammarViewAppTest {
         GrammarViewApp app = new GrammarViewApp();
         File tempFile = File.createTempFile("nullability", ".y");
         try {
-            java.nio.file.Files.writeString(tempFile.toPath(), "%% \n A : ; \n B : A ; \n C : B B ; \n %%");
+            java.nio.file.Files.writeString(tempFile.toPath(), """
+                %%
+                A : ;
+                B : A ;
+                C : B B ;
+                %%
+                """);
 
-            // WHEN: The grammar is parsed and nullability is calculated
-            List<GrammarViewApp.Rule> rules = app.parseYacc(tempFile);
-            java.util.Set<String> nullableRules = calculateNullableRules(rules);
+            // WHEN: The grammar is parsed into a GrammarModel
+            GrammarModel model = app.parseYacc(tempFile);
 
             // THEN: A, B, and C should all be nullable
-            assertTrue(nullableRules.contains("A"), "Rule 'A' should be nullable (empty RHS)");
-            assertTrue(nullableRules.contains("B"), "Rule 'B' should be nullable (RHS is A, which is nullable)");
-            assertTrue(nullableRules.contains("C"), "Rule 'C' should be nullable (RHS is B B, and B is nullable)");
+            assertTrue(model.isNullable("A"), "Rule 'A' should be nullable (empty RHS)");
+            assertTrue(model.isNullable("B"), "Rule 'B' should be nullable (RHS is A, which is nullable)");
+            assertTrue(model.isNullable("C"), "Rule 'C' should be nullable (RHS is B B, and B is nullable)");
         } finally {
             tempFile.delete();
         }
     }
 
-    private GrammarViewApp.Rule findRule(List<GrammarViewApp.Rule> rules, String name) {
-        for (GrammarViewApp.Rule rule : rules) {
-            if (rule.name.equals(name)) {
-                return rule;
-            }
-        }
-        return null;
-    }
+    @Test
+    public void testParseTest3Y() throws Exception {
+        // GIVEN: A GrammarViewApp instance and the test3.y example file
+        GrammarViewApp app = new GrammarViewApp();
+        File testFile = new File("examples/test3.y");
+        assertTrue(testFile.exists(), "Test file test3.y should exist");
 
-    private boolean isNullable(GrammarViewApp.Rule rule, java.util.Set<String> nullableRules) {
-        return nullableRules.contains(rule.name);
-    }
+        // WHEN: The YACC file is parsed into a GrammarModel
+        GrammarModel model = app.parseYacc(testFile);
 
-    private java.util.Set<String> calculateNullableRules(List<GrammarViewApp.Rule> rules) {
-        java.util.Set<String> nullableRules = new java.util.HashSet<>();
-        boolean changed = true;
-        while (changed) {
-            changed = false;
-            for (GrammarViewApp.Rule rule : rules) {
-                if (nullableRules.contains(rule.name)) continue;
-                for (List<String> alt : rule.alternatives) {
-                    if (alt.isEmpty()) {
-                        if (nullableRules.add(rule.name)) changed = true;
-                        break;
-                    } else {
-                        boolean allNullable = true;
-                        for (String item : alt) {
-                            if (!nullableRules.contains(item)) {
-                                allNullable = false;
-                                break;
-                            }
-                        }
-                        if (allNullable) {
-                            if (nullableRules.add(rule.name)) changed = true;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-        return nullableRules;
-    }
-
-    private boolean isRecursive(GrammarViewApp.Rule rule) {
-        for (List<String> alt : rule.alternatives) {
-            if (alt.contains(rule.name)) {
-                return true;
-            }
-        }
-        return false;
+        // THEN: Verify the structural properties of the parsed grammar
+        assertEquals(2, model.getRules().size(), "There should be 2 rules");
+        assertEquals("rule", model.getRules().get(0).name, "The first rule should be 'rule'");
+        assertEquals(26, model.getRules().get(0).alternatives.get(0).getSymbols().size(), "The first rule should have 26 symbols in its first alternative");
     }
 }

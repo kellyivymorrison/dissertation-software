@@ -16,7 +16,7 @@ import java.io.IOException;
  */
 public class PdfSymbolRenderer {
 
-    // --- Rendering Constants ---
+    // --- Rendering Colors ---
     
     public static final Color COLOR_VIVID_YELLOW = Color.YELLOW;
     public static final Color COLOR_LIGHT_BLUE = new Color(173, 216, 230);
@@ -24,17 +24,6 @@ public class PdfSymbolRenderer {
     public static final Color COLOR_SHADOW = Color.LIGHT_GRAY;
     public static final Color COLOR_TEXT = Color.BLACK;
     public static final Color COLOR_STROKE = Color.BLACK;
-
-    public static final float FONT_SIZE_TITLE = 18f;
-    public static final float FONT_SIZE_DEFAULT = 12f;
-    public static final float FONT_UNIT_CONVERSION = 1000f;
-
-    public static final float BOX_PADDING_X = 10f;
-    public static final float BOX_PADDING_Y = 6f;
-    public static final float SHADOW_OFFSET = 2f;
-    public static final float RECURSION_STACK_OFFSET = 4f;
-    public static final float START_RULE_INDENT = 10f;
-    public static final float ROUNDED_RECT_RADIUS = 5f;
 
     private final PDPageContentStream contentStream;
     private final PDType1Font font;
@@ -54,7 +43,7 @@ public class PdfSymbolRenderer {
         if (isRecursive) {
             // Draw recursive stack (two offset boxes behind)
             for (int stack = 2; stack >= 1; stack--) {
-                float sOffset = stack * RECURSION_STACK_OFFSET;
+                float sOffset = stack * PdfLayoutConstants.RECURSION_STACK_OFFSET;
                 if (isStart) {
                     drawLHSStartShape(x + sOffset, y + sOffset, width, height, false);
                 } else {
@@ -96,10 +85,10 @@ public class PdfSymbolRenderer {
      * Draws the special < shape for the start rule.
      */
     public void drawLHSStartShape(float x, float y, float width, float height, boolean fillOnly) throws IOException {
-        contentStream.moveTo(x + START_RULE_INDENT, y);
+        contentStream.moveTo(x + PdfLayoutConstants.START_RULE_INDENT, y);
         contentStream.lineTo(x + width, y);
         contentStream.lineTo(x + width, y + height);
-        contentStream.lineTo(x + START_RULE_INDENT, y + height);
+        contentStream.lineTo(x + PdfLayoutConstants.START_RULE_INDENT, y + height);
         contentStream.lineTo(x, y + (height / 2));
         contentStream.closePath();
         if (fillOnly) contentStream.fill(); else contentStream.fillAndStroke();
@@ -109,7 +98,7 @@ public class PdfSymbolRenderer {
      * Renders centered text within a box.
      */
     public void drawCenteredText(String text, float x, float y, float boxWidth, float boxHeight, float fontSize, float capHeight, boolean isStartRule) throws IOException {
-        float textWidth = font.getStringWidth(text) / FONT_UNIT_CONVERSION * fontSize;
+        float textWidth = font.getStringWidth(text) / PdfLayoutConstants.FONT_UNIT_CONVERSION * fontSize;
         float textX = x + (boxWidth - textWidth) / 2 + (isStartRule ? 3 : 0);
         float textY = y + (boxHeight - capHeight) / 2;
 
@@ -119,5 +108,54 @@ public class PdfSymbolRenderer {
         contentStream.newLineAtOffset(textX, textY);
         contentStream.showText(text);
         contentStream.endText();
+    }
+
+    /**
+     * Draws the S-shaped wrapping curve for long rules.
+     * xStart: where the items on the current line ended.
+     * xRight: the rightmost bound (right margin).
+     * xLeft: the leftmost bound for the wrap (indented left margin).
+     * yTop: Y-coordinate of the current line.
+     * yMid: Y-coordinate of the intermediate horizontal line.
+     * yBottom: Y-coordinate of the next line of items.
+     * radius: radius of the corner curves.
+     */
+    public void drawWrappingCurve(float xStart, float xRight, float xLeft, float yTop, float yMid, float yBottom, float radius) throws IOException {
+        float kappa = 0.552284749831f;
+        float kRadius = radius * kappa;
+
+        contentStream.setStrokingColor(COLOR_STROKE);
+
+        // --- FIRST BEND (Right Side: Top to Middle) ---
+        // 1. Top horizontal line from xStart to the start of the first curve
+        contentStream.moveTo(xStart, yTop);
+        contentStream.lineTo(xRight - radius, yTop);
+
+        // 2. Top-right curve (horizontal right -> vertical down)
+        contentStream.curveTo(xRight - radius + kRadius, yTop, xRight, yTop - radius + kRadius, xRight, yTop - radius);
+
+        // 3. Vertical line down
+        contentStream.lineTo(xRight, yMid + radius);
+
+        // 4. Middle-right curve (vertical down -> horizontal left)
+        contentStream.curveTo(xRight, yMid + radius - kRadius, xRight - radius + kRadius, yMid, xRight - radius, yMid);
+
+        // --- SECOND BEND (Left Side: Middle to Bottom) ---
+        // 5. Middle horizontal line from right to left
+        contentStream.lineTo(xLeft + radius, yMid);
+
+        // 6. Middle-left curve (horizontal left -> vertical down)
+        contentStream.curveTo(xLeft + radius - kRadius, yMid, xLeft, yMid - radius + kRadius, xLeft, yMid - radius);
+
+        // 7. Vertical line down
+        contentStream.lineTo(xLeft, yBottom + radius);
+
+        // 8. Bottom-left curve (vertical down -> horizontal right)
+        contentStream.curveTo(xLeft, yBottom + radius - kRadius, xLeft + radius - kRadius, yBottom, xLeft + radius, yBottom);
+
+        // 9. Small horizontal tail to connect to the first symbol of the new line
+        contentStream.lineTo(xLeft + (radius * 2), yBottom);
+
+        contentStream.stroke();
     }
 }

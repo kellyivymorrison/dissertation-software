@@ -1,5 +1,43 @@
 # Project History
+
+## 2026-03-16
+
+- **Refactoring:**
+    - Centralized all PDF layout and rendering constants into a new `PdfLayoutConstants` class.
+    - Moved private layout constants from `PdfGenerator` and public layout constants from `PdfSymbolRenderer` to `PdfLayoutConstants`.
+    - Added comprehensive Javadoc documentation to all layout constants to improve maintainability and clarity.
+    - Updated `PdfGenerator` and `PdfSymbolRenderer` to reference the centralized constants, improving separation of concerns and reducing code duplication.
+- **PDF Generation Improvements:**
+    - Implemented S-shaped line wrapping for long grammar rules to prevent them from extending beyond the page margin.
+    - Added a custom `drawWrappingCurve` method to `PdfSymbolRenderer` for rendering smooth, curved transitions between wrapped lines.
+    - Refined S-shaped line wrapping to ensure the middle horizontal segment returns fully to the indented left margin, correctly connecting the end of one line to the beginning of the next.
+    - Updated `drawWrappingCurve` to handle multiple vertical drop points for a cleaner visual transition.
+    - Added a horizontal tail to the wrapping curve and perfectly aligned it with the first symbol of each wrapped line to ensure a seamless connection.
+- **Refactoring:**
+    - Refactored `GrammarModel.Rule` to use a `List<RuleAlternative>` instead of a `List<List<String>>`.
+    - Introduced `RuleAlternative` as a first-class object to encapsulate the symbols of a grammar rule's alternative.
+    - Updated `GrammarModel`, `GrammarViewApp`, `PdfGenerator`, and `GrammarViewAppTest` to use the new `RuleAlternative` API.
+    - Moved PDF generation logic from `GrammarViewApp` into a dedicated `PdfGenerator` class to improve separation of concerns.
+    - Updated `PdfGenerator` to be immutable and changed its constructor to accept the YACC file name as a `String` instead of a `File` object.
+    - Relocated layout constants and pagination helper methods (`calculateRuleHeight`, `getPageSize`) to `PdfGenerator`.
+    - Introduced `GrammarModel` class to encapsulate grammar rules and their metadata (non-terminals, nullability, recursion).
+    - Updated `GrammarViewApp.parseYacc()` to return a `GrammarModel` instead of a raw `List<Rule>`.
+    - Centralized grammar analysis logic (`isNullable`, `isRecursive`, `findRule`) within the `GrammarModel` class.
+    - Refactored `GrammarViewAppTest` to use the new `GrammarModel` API, removing redundant local helper methods.
+    - Updated `GrammarViewAppTest` to use Java text blocks for inline grammars in unit tests for improved readability.
+- **Multi-page Support:**
+    - Implemented multi-page PDF generation to handle large grammars.
+    - Added a pagination strategy based on pre-calculating the height of each grammar rule to prevent symbols from being cut off at page boundaries.
+    - Improved stability by ensuring page breaks only occur between rules, avoiding nested PDF stream operations.
+- **Testing:**
+    - Created `examples/test3.y` with a 26-symbol rule to verify the wrapping mechanism.
+    - Created `examples/long_grammar.y` to verify multi-page PDF generation and pagination.
+    - Added a new unit test `testParseTest3Y` to `GrammarViewAppTest.java` to ensure correct parsing of long rules.
+- **Documentation:**
+    - Updated `PROMPTS.md` with the latest user request for rule wrapping.
+
 ## 2026-03-15
+
 - **Grammar Analysis Improvements:**
     - Enhanced nullability detection: A rule is now correctly identified as nullable if it has an empty RHS alternative OR if all items in any of its RHS alternatives are themselves nullable.
     - Implemented a fixed-point iteration algorithm to handle recursive nullability dependencies between rules.
@@ -56,6 +94,7 @@
     - Fixed syntax errors in example files.
 
 ## 2026-03-11
+
 - **Documentation & Logging:**
     - Created `PROMPTS.md` to log all user requests throughout the project.
     - Added a mandate to `GEMINI.md` to ensure `PROMPTS.md` is updated with every future request.
@@ -83,6 +122,7 @@
     - Refactored `GrammarViewApp.java` to utilize the new parser.
 
 ## 2026-03-10 (Day 1)
+
 - **Initial Project Scaffolding:**
   - Established a Java 20 Maven project structure.
   - Integrated `picocli` for CLI argument parsing and `slf4j-simple` for logging.

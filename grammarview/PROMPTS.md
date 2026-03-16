@@ -1,9 +1,11 @@
 # User Prompts Log
 
 ## Day 1: 2026-03-10
+
 - I want to create a new Java 20 command line app called grammarview that will read a YACC file and produce a PDF view of the grammar with custom symbols that I will define later. The app should have a -legend command line parameter for adding a legend page, a -help parameter for showing help, and a -v parameter to enable verbose logging. The command line also needs a mandatory argument that is the name of a YACC file to be processed.
 
 ## Day 2: 2026-03-11
+
 - I have a saved Gemini chat called "day1". Could you use the information in that to update the HISTORY.md file with what we did yesterday?
 - I want a .gitignore file for this project
 - I want the PDF file to be created in landscape mode
@@ -34,14 +36,14 @@
 - All of the rule names on the left hand side should have a yellow background (unless they are nullable: then keep the light gray background).
 - Please document the program again, as you removed the documentation you added previously.
 - I would like to add the following header to all Java source files:
+
+```text
 # Copyright (c) 2026 Kelly Morrison
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3.
-- # Copyright (c) 2026 Kelly Morrison
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License version 3.
+```
+
 - Update the README.md to use GPL-3.0
 - Also add the following text to the README.md file:
 This software is released under GPL-3.0 to ensure that improvements
@@ -53,6 +55,7 @@ remain open and available to the research community.
 - Is dependency-reduced-pom.xml still needed? If not, I'd like to delete it.
 
 ## Day 6: 2026-03-15
+
 - I want you to save my prompts in PROMPTS.md
 - I would like to replace the hard coded "magic numbers" with well-named constants.
 - Let's move the routines that draw PDF graphics into a PdfSymbolRenderer class.
@@ -67,3 +70,33 @@ remain open and available to the research community.
 - Add similar unit tests for test.y. Also, please document the unit tests with GIVEN.. WHEN... THEN... comments.
 - If a rhs is empty, or if all of the items on a rhs alternative are nullable, then the rule is nullable.
 
+## Day 7: 2026-03-16
+
+- Rules should be wrapped so that they do not go off the right edge of the page. A long rule like this:
+
+```YACC
+rule : aaa bbb ccc ddd eee fff ggg hhh iii jjj ;
+```
+
+Should be wrapped like this:
+
+```text
+aaa bbb ccc ddd eee fff ggg ====+
+                                !
+    +===========================+
+    !
+    +== hhh iii jjj ;
+```
+
+Where the ‘+’ and ‘!’ symbols indicate a half circle curve connecting the straight lines depicted by the ‘=‘ symbols.
+
+Please create a sample grammar called test3.y in the examples directory that has a very long rule that would ordinarily go off the right edge of the page, and verify that it wraps properly.
+
+- The parseYacc() method should return a GrammarModel instead of a ```List<Rule>```. Also, the findRule(), isNullable(), calculateNullableRules(), and isRecursive() functions in the unit tests should be part of the GrammarModel.
+- When you create an inline grammar for a unit test, use a Java text block (the ones delimited by three double quote marks) instead of a string with newlines and tabs.
+- You are only creating the first page of the PDF file. It should print the entire grammar using as many pages as needed. Also, make sure that none of the symbols are cut off at the bottom of the page: if there isn't room to draw a line, go to the next page and continue it.
+- Let's move the generatePdf() function into a PdfGenerator class.
+- The PdfGenerator should be passed the YACC file's name, not the File object. And let's make PdfGenerator immutable.
+
+- Instead of a Rule being a ```List<List<String>>```, let's make it a ```List<RuleAlternative>```
+- Move the layout constants in PdfGenerator into a PdfLayoutConstants class, and document the constants.

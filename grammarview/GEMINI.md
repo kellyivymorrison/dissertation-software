@@ -9,8 +9,8 @@ This document outlines the foundational mandates and project-specific instructio
 - **Styling:** Maintain a consistent visual style for the generated PDF, using bold fonts for rule names and standard fonts for definitions.
 - **Multi-page Support:** Always ensure that grammars exceeding a single page are handled gracefully, with rules continuing on subsequent pages.
 - **Documentation & History:**
-    - Keep `HISTORY.md` updated with technical changes.
-    - Append every new user prompt to `PROMPTS.md` to maintain a log of requirements.
+  - Keep `HISTORY.md` updated with technical changes.
+  - Append every new user prompt to `PROMPTS.md` to maintain a log of requirements.
 
 ## Architectural Patterns
 
