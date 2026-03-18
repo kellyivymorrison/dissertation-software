@@ -119,8 +119,9 @@ public class PdfSymbolRenderer {
      * yMid: Y-coordinate of the intermediate horizontal line.
      * yBottom: Y-coordinate of the next line of items.
      * radius: radius of the corner curves.
+     * endWithCurveRight: if true, adds a final curve to the right to connect to the next line.
      */
-    public void drawWrappingCurve(float xStart, float xRight, float xLeft, float yTop, float yMid, float yBottom, float radius) throws IOException {
+    public void drawWrappingCurve(float xStart, float xRight, float xLeft, float yTop, float yMid, float yBottom, float radius, boolean endWithCurveRight) throws IOException {
         float kappa = 0.552284749831f;
         float kRadius = radius * kappa;
 
@@ -148,13 +149,17 @@ public class PdfSymbolRenderer {
         contentStream.curveTo(xLeft + radius - kRadius, yMid, xLeft, yMid - radius + kRadius, xLeft, yMid - radius);
 
         // 7. Vertical line down
-        contentStream.lineTo(xLeft, yBottom + radius);
+        if (endWithCurveRight) {
+            contentStream.lineTo(xLeft, yBottom + radius);
 
-        // 8. Bottom-left curve (vertical down -> horizontal right)
-        contentStream.curveTo(xLeft, yBottom + radius - kRadius, xLeft + radius - kRadius, yBottom, xLeft + radius, yBottom);
+            // 8. Bottom-left curve (vertical down -> horizontal right)
+            contentStream.curveTo(xLeft, yBottom + radius - kRadius, xLeft + radius - kRadius, yBottom, xLeft + radius, yBottom);
 
-        // 9. Small horizontal tail to connect to the first symbol of the new line
-        contentStream.lineTo(xLeft + (radius * 2), yBottom);
+            // 9. Small horizontal tail to connect to the first symbol of the new line
+            contentStream.lineTo(xLeft + (radius * 2), yBottom);
+        } else {
+            contentStream.lineTo(xLeft, yBottom);
+        }
 
         contentStream.stroke();
     }

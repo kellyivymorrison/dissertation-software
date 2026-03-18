@@ -34,8 +34,8 @@ public class GrammarViewApp implements Callable<Integer> {
     private static final int EXIT_PARSE_ERROR = 4;
     private static final int EXIT_PDF_ERROR = 5;
 
-    @Parameters(index = "0", description = "The YACC file to process.")
-    private File yaccFile;
+    @Parameters(index = "0", description = "The YACC file or directory to process.")
+    private File inputPath;
 
     @Option(names = {"-legend"}, description = "Add a legend page to the PDF.")
     private boolean legend;
@@ -54,7 +54,13 @@ public class GrammarViewApp implements Callable<Integer> {
     @Option(names = {"-v", "--verbose"}, description = "Enable verbose logging.")
     private boolean verbose;
 
-    private static class GrammarParseException extends Exception {
+    @Option(names = {"--footer"}, description = "Add a footer to each page.")
+    private boolean footer;
+
+    @Option(names = {"-o", "--output"}, description = "The directory to write the output PDF files to.")
+    private File outputDir;
+
+    static class GrammarParseException extends Exception {
         GrammarParseException(String message) {
             super(message);
         }
@@ -66,24 +72,75 @@ public class GrammarViewApp implements Callable<Integer> {
             if (verbose) {
                 System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "debug");
             }
-            if (!yaccFile.exists()) {
-                System.err.println("Error: File not found: " + yaccFile.getPath());
+            if (!inputPath.exists()) {
+                System.err.println("Error: Path not found: " + inputPath.getPath());
                 return EXIT_FILE_NOT_FOUND;
             }
             if (fontSize < 6 || fontSize > 32) {
                 System.err.println("Error: Font size must be between 6 and 32 points.");
                 return EXIT_USAGE_ERROR;
             }
-            System.out.println("Processing YACC file: " + yaccFile.getName());
-            
-            GrammarModel model = parseYacc(yaccFile);
-            
-            PdfGenerator generator = new PdfGenerator(yaccFile.getName(), fontSize, pageSizeName, portrait, legend);
-            generator.generate(model);
-            
-            return EXIT_SUCCESS;
+
+            if (outputDir != null) {
+                if (!outputDir.exists()) {
+                    if (!outputDir.mkdirs()) {
+                        System.err.println("Error: Failed to create output directory: " + outputDir.getPath());
+                        return EXIT_GENERAL_ERROR;
+                    }
+                } else if (!outputDir.isDirectory()) {
+                    System.err.println("Error: Output path is not a directory: " + outputDir.getPath());
+                    return EXIT_USAGE_ERROR;
+                }
+            }
+
+            if (inputPath.isDirectory()) {
+                File[] files = inputPath.listFiles((dir, name) -> 
+                    name.endsWith(".y") || name.endsWith(".yacc") || name.endsWith(".bison")
+                );
+                
+                if (files == null || files.length == 0) {
+                    System.err.println("Error: No YACC/Bison files found in directory: " + inputPath.getPath());
+                    return EXIT_FILE_NOT_FOUND;
+                }
+
+                int exitCode = EXIT_SUCCESS;
+                for (File file : files) {
+                    int result = processFile(file);
+                    if (result != EXIT_SUCCESS) {
+                        exitCode = result;
+                    }
+                }
+                return exitCode;
+            } else {
+                return processFile(inputPath);
+            }
         } catch (Exception e) {
             System.err.println("Error: An unexpected error occurred: " + e.getMessage());
+            if (verbose) e.printStackTrace(System.err);
+            return EXIT_GENERAL_ERROR;
+        }
+    }
+
+    /**
+     * Processes a single YACC file: parses it and generates a PDF.
+     */
+    public int processFile(File file) {
+        try {
+            System.out.println("Processing YACC file: " + file.getName());
+            GrammarModel model = parseYacc(file);
+            PdfGenerator generator = new PdfGenerator(file.getName(), fontSize, pageSizeName, portrait, legend, footer, outputDir);
+            generator.generate(model);
+            return EXIT_SUCCESS;
+        } catch (GrammarParseException e) {
+            System.err.println("Error parsing YACC file " + file.getName() + ": " + e.getMessage());
+            if (verbose) e.printStackTrace(System.err);
+            return EXIT_PARSE_ERROR;
+        } catch (IOException e) {
+            System.err.println("Error generating PDF for " + file.getName() + ": " + e.getMessage());
+            if (verbose) e.printStackTrace(System.err);
+            return EXIT_PDF_ERROR;
+        } catch (Exception e) {
+            System.err.println("Unexpected error processing file " + file.getName() + ": " + e.getMessage());
             if (verbose) e.printStackTrace(System.err);
             return EXIT_GENERAL_ERROR;
         }

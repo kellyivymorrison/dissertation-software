@@ -1,4 +1,32 @@
 # Project History
+## 2026-03-17
+
+- **PDF Generation Improvements:**
+    - Adjusted the starting point of connecting lines for recursive symbols to begin at the right edge of the highest stacked rectangle, rather than the lowest one.
+    - Implemented "no slanted lines" for recursive connections by adding vertical drops where necessary to maintain horizontal segments.
+    - Updated wrapping curve logic to correctly handle recursive symbols as the source of a wrapped line.
+- **Features:**
+    - Expanded the application to support processing multiple grammars within a directory.
+...
+    - Added a `--footer` command-line option to include a horizontal line, filename, and page number at the bottom of each page.
+    - Added an `--output` (or `-o`) command-line option to specify a target directory for generated PDF files.
+- **PDF Generation Improvements:**
+    - Refined the S-shaped wrapping curves based on updated visual specifications in `EXAMPLES.md`.
+    - Long rule names now use a "terminating" wrap that ends precisely at the vertical alternative line.
+    - Alternative wraps now consistently use a "connecting" wrap with a horizontal tail.
+    - Implemented intelligent pagination to prevent rules or alternatives from overlapping with the footer or being cut off at page boundaries.
+    - Improved vertical connectivity between alternatives by tracking the exact connection points, even when alternatives wrap.
+    - Added adaptive vertical spacing: alternatives containing recursive items now include extra clearance to prevent visual crowding.
+- **Error Handling & Testing:**
+    - Re-introduced `EXIT_PARSE_ERROR (4)` and `EXIT_PDF_ERROR (5)` return codes to `GrammarViewApp`.
+    - Updated `processFile` and `call` methods to correctly catch and return specific exit codes for parsing and PDF generation failures.
+    - Added comprehensive unit tests in `GrammarViewAppTest.java` to verify all exit codes: `SUCCESS (0)`, `FILE_NOT_FOUND (3)`, `USAGE_ERROR (2)`, `PARSE_ERROR (4)`, and `PDF_ERROR (5)`.
+    - Integrated `Mockito` for mocking `PdfGenerator` to simulate I/O failures during PDF generation.
+    - Made `GrammarParseException` package-private to facilitate testing.
+- **Refactoring:**
+    - Refactored `GrammarViewApp` to encapsulate single-file processing into a dedicated `processFile` method.
+    - Centralized and updated layout constants (`RHS_WRAP_X_OFFSET`, `BOTTOM_OVERFLOW_LIMIT`) to support the new footer and wrapping logic.
+    - Updated height calculation methods (`calculateRuleHeight`, `calculateAlternativeHeight`) to provide accurate pagination.
 
 ## 2026-03-16
 

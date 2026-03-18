@@ -23,7 +23,7 @@ public final class PdfLayoutConstants {
     public static final float INITIAL_Y_OFFSET = 100f;
 
     /** The Y coordinate limit below which a new page is triggered. */
-    public static final float BOTTOM_OVERFLOW_LIMIT = 50f;
+    public static final float BOTTOM_OVERFLOW_LIMIT = 60f;
 
     // --- Rule and Symbol Layout ---
 
@@ -39,7 +39,7 @@ public final class PdfLayoutConstants {
     /** Vertical spacing between different grammar rules. */
     public static final float SPACING_RULES = 20f;
 
-    /** Horizontal offset when a long rule wraps to a new line. */
+    /** Horizontal offset from the vertical alternative line to the start of a wrapped line. */
     public static final float RHS_WRAP_X_OFFSET = 40f;
 
     /** Radius of the curves used when wrapping long rules. */
@@ -72,6 +72,9 @@ public final class PdfLayoutConstants {
 
     /** Default font size for grammar rules and symbols. */
     public static final float FONT_SIZE_DEFAULT = 12f;
+
+    /** Font size used for the page footer. */
+    public static final float FONT_SIZE_FOOTER = 8f;
 
     /** Conversion factor for PDF font units. */
     public static final float FONT_UNIT_CONVERSION = 1000f;

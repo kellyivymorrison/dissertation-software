@@ -100,3 +100,18 @@ Please create a sample grammar called test3.y in the examples directory that has
 
 - Instead of a Rule being a ```List<List<String>>```, let's make it a ```List<RuleAlternative>```
 - Move the layout constants in PdfGenerator into a PdfLayoutConstants class, and document the constants.
+
+## Day 8: 2026-03-17
+
+- The app currently accepts a YACC file as input. Let's expand that so that if a directory is provided, all of the grammars in that directory are processed.
+- Some grammars have a long rule name, which causes issues when wrapping an alternative because the wrapped line crosses the vertical line that leads to the other alternatives. Let's make two fixes: first, if a rule name is relatively long (say, 20% of the width of the page), then we should begin the first alternative on a second line, and use the backwards "S" shape that we use at the end of a line that wraps to begin the first alternative closer to the left of the page.
+- Look at the three examples in the EXAMPLES.md file. They show how the long rule names and line wrapping should be handled.
+- That's not quite correct. I've updated EXAMPLES.md to be more descriptive of the output I want.
+- Let's add a --footer option that will draw a footer at the bottom of each page. The footer should have a horizontal line that crosses the page. Below it, the name of the file should be on the left hand size, aligned to the left. On the right hand side should be the page number, aligned to the right. All of the text in the footer should be font size 8.
+- None of the rules should overlap the footer (if a footer was requested). Also, if a rule cannot be completely drawn on a single page, then it should be continued on the next page. Do not cut off any of the alternatives: instead, if an alternative cannot be drawn without going off the page or into the footer margin, then wait and draw the alternative on the next page.
+- I have updated EXAMPLES.md to include an Example 4 which shows a grammar that is not being drawn correctly.
+- If an alternative contains a recursive item, let's add a little more space to the top of the line so that the recursive item doesn't crowd items on the previous line.
+- Let's add a --output option that takes a directory argument and writes the output PDF files into that directory. If the directory does not exist, then it should be created.
+- When connecting a recursive symbol to an item on its right, the connecting line begins at the right edge of the lowest rectangle. It should begin at the right edge of the highest rectangle.
+
+- You stopped using EXIT_PARSE_ERROR and EXIT_PDF_ERROR return codes. Please start checking for parse and PDF generation errors and return the proper error code. Also, please write unit tests for all error codes (while mocking file system calls where necessary).

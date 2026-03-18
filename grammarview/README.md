@@ -31,7 +31,7 @@ The shaded JAR will be created in the `target/` directory: `target/grammarview-1
 Run the tool using `java -jar`:
 
 ```bash
-java -jar target/grammarview-1.0-SNAPSHOT.jar [OPTIONS] <YACC_FILE>
+java -jar target/grammarview-1.0-SNAPSHOT.jar [OPTIONS] <YACC_FILE|DIRECTORY>
 ```
 
 ### Options
@@ -41,7 +41,13 @@ java -jar target/grammarview-1.0-SNAPSHOT.jar [OPTIONS] <YACC_FILE>
 - `--page-size`: Page size (LETTER, LEGAL, A0, A1, A2, A3, A4, A5, A6). Default: LETTER.
 - `-s`, `--font-size`: Font size in points (default: 12, range: 6-32).
 - `-v`, `--verbose`: Enable verbose logging.
+- `--footer`: Add a footer to each page showing the filename and page number.
+- `-o`, `--output <DIR>`: The directory to write the output PDF files to (will be created if it doesn't exist).
 - `-h`, `--help`: Show the help message.
+
+### Directory Processing
+
+If a directory is provided as the input argument, GrammarView will process all files with `.y`, `.yacc`, or `.bison` extensions within that directory.
 
 ### Example
 

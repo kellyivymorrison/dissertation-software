@@ -6,11 +6,126 @@
 package com.grammarview;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
+import picocli.CommandLine;
+
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 public class GrammarViewAppTest {
+
+    private static final int EXIT_SUCCESS = 0;
+    private static final int EXIT_GENERAL_ERROR = 1;
+    private static final int EXIT_USAGE_ERROR = 2;
+    private static final int EXIT_FILE_NOT_FOUND = 3;
+    private static final int EXIT_PARSE_ERROR = 4;
+    private static final int EXIT_PDF_ERROR = 5;
+
+    @Test
+    public void testExitSuccess() {
+        // GIVEN: A valid YACC file
+        File testFile = new File("examples/test.y");
+        
+        // WHEN: Executing the app with the valid file
+        GrammarViewApp app = new GrammarViewApp();
+        CommandLine cmd = new CommandLine(app);
+        int exitCode = cmd.execute(testFile.getPath(), "--output", "target/test-output");
+
+        // THEN: The exit code should be SUCCESS
+        assertEquals(EXIT_SUCCESS, exitCode);
+    }
+
+    @Test
+    public void testExitFileNotFound() {
+        // GIVEN: A non-existent file
+        String nonExistentFile = "non_existent.y";
+        
+        // WHEN: Executing the app
+        GrammarViewApp app = new GrammarViewApp();
+        CommandLine cmd = new CommandLine(app);
+        int exitCode = cmd.execute(nonExistentFile);
+
+        // THEN: The exit code should be FILE_NOT_FOUND
+        assertEquals(EXIT_FILE_NOT_FOUND, exitCode);
+    }
+
+    @Test
+    public void testExitUsageError() {
+        // GIVEN: An invalid font size
+        File testFile = new File("examples/test.y");
+        
+        // WHEN: Executing the app with an out-of-range font size
+        GrammarViewApp app = new GrammarViewApp();
+        CommandLine cmd = new CommandLine(app);
+        int exitCode = cmd.execute(testFile.getPath(), "--font-size", "5");
+
+        // THEN: The exit code should be USAGE_ERROR
+        assertEquals(EXIT_USAGE_ERROR, exitCode);
+    }
+
+    @Test
+    public void testExitParseError() throws Exception {
+        // GIVEN: A YACC file with syntax errors
+        File invalidFile = File.createTempFile("invalid", ".y");
+        try {
+            Files.writeString(invalidFile.toPath(), "invalid grammar content");
+
+            // WHEN: Executing the app
+            GrammarViewApp app = new GrammarViewApp();
+            CommandLine cmd = new CommandLine(app);
+            int exitCode = cmd.execute(invalidFile.getPath());
+
+            // THEN: The exit code should be PARSE_ERROR
+            assertEquals(EXIT_PARSE_ERROR, exitCode);
+        } finally {
+            invalidFile.delete();
+        }
+    }
+
+    @Test
+    public void testExitPdfError() throws Exception {
+        // GIVEN: A valid YACC file but a mocked PdfGenerator that fails with IOException
+        File testFile = new File("examples/test.y");
+        
+        try (MockedConstruction<PdfGenerator> mocked = mockConstruction(PdfGenerator.class,
+                (mock, context) -> {
+                    doThrow(new IOException("Mocked PDF generation failure")).when(mock).generate(any());
+                })) {
+            
+            // WHEN: Executing the app
+            GrammarViewApp app = new GrammarViewApp();
+            CommandLine cmd = new CommandLine(app);
+            int exitCode = cmd.execute(testFile.getPath(), "--output", "target/test-output-fail");
+
+            // THEN: The exit code should be PDF_ERROR (5)
+            assertEquals(EXIT_PDF_ERROR, exitCode);
+        }
+    }
+
+    @Test
+    public void testExitGeneralError() throws Exception {
+        // GIVEN: A valid YACC file but a mocked PdfGenerator that fails with an unexpected RuntimeException
+        File testFile = new File("examples/test.y");
+        
+        try (MockedConstruction<PdfGenerator> mocked = mockConstruction(PdfGenerator.class,
+                (mock, context) -> {
+                    doThrow(new RuntimeException("Unexpected mock failure")).when(mock).generate(any());
+                })) {
+            
+            // WHEN: Executing the app
+            GrammarViewApp app = new GrammarViewApp();
+            CommandLine cmd = new CommandLine(app);
+            int exitCode = cmd.execute(testFile.getPath(), "--output", "target/test-output-general-fail");
+
+            // THEN: The exit code should be GENERAL_ERROR (1)
+            assertEquals(EXIT_GENERAL_ERROR, exitCode);
+        }
+    }
 
     @Test
     public void testParseTest2Y() throws Exception {
